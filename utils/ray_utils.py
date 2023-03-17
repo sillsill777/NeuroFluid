@@ -96,6 +96,9 @@ def get_ray_directions(H, W, focal):
     """
     grid = create_meshgrid(H, W, normalized_coordinates=False)[0]
     i, j = grid.unbind(-1)
+    # same as , i, j = torch.meshgrid(torch.arange(W,dtype=torch.float32), torch.arange(H,dtype=torch.float32),
+    # indexing='xy')
+
     # the direction here is without +0.5 pixel centering as calibration is not so accurate
     # see https://github.com/bmild/nerf/issues/24
     directions = \

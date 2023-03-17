@@ -75,7 +75,7 @@ class BlenderDataset(Dataset):
         W, H = int(self.img_wh[0] // self.img_scale), int(self.img_wh[1] // self.img_scale)
         focal = .5 * W / np.tan(0.5 * self.meta['camera_angle_x'])
         # get ray direction for all pixels
-        directions = get_ray_directions(H, W, focal)
+        directions = get_ray_directions(H, W, focal)  # (H,W,3) vectors expressed w.r.t. camera coord.
         image_paths = []
         poses = []
         all_rays = []
