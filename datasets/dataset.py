@@ -94,7 +94,7 @@ class BlenderDataset(Dataset):
                 particle_vels.append(particle_vel)
             # get orignal point and directrion
             pose = np.array(frame['transform_matrix'])[:3, :4]
-            poses.append(pose) # aa
+            poses.append(pose) # aaa
             c2w = torch.FloatTensor(pose)
             all_cw.append(pose)
             rays_o, rays_d = get_rays(directions, c2w)
