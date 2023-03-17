@@ -21,17 +21,17 @@ from utils.ray_utils import get_ray_directions, get_rays
 class BlenderDataset(Dataset):
     def __init__(self, root_dir, cfg, imgW, imgH, start_index, end_index, imgscale, viewnames, split='train'):
         super(BlenderDataset, self).__init__()
-        self.data_type = cfg.data_type
+        self.data_type = cfg.data_type  # splishsplash
         # self.half_res = cfg.half_res
-        self.viewnames = viewnames
+        self.viewnames = viewnames  # ['view_1', 'view_2', 'view_3', 'view_4']
         self.cfg = cfg
-        self.start_index = start_index
-        self.end_index = end_index
-        self.split = split
+        self.start_index = start_index  # 0
+        self.end_index = end_index  # 50
+        self.split = split  # train
         self.img_wh = (imgW, imgH)
-        self.img_scale = imgscale
+        self.img_scale = imgscale  # 1.0
         assert self.img_wh[0] == self.img_wh[1], 'image width should be equal to image height'
-        self.root_dir = root_dir #cfg.data_path
+        self.root_dir = root_dir  # ./data/data_release/watercube
         self.transforms = T.ToTensor()
         # self.view_num = len(self.viewnames)
         self.read_metas(self.viewnames)
@@ -39,7 +39,8 @@ class BlenderDataset(Dataset):
         print('Total dataset size:', self.all_rgbs_mv.shape[1])
 
     def read_metas(self, viewnames):
-        self.all_rays_mv, self.all_rgbs_mv, self.all_cw_mv, self.focal_mv, self.particles_poss_mv, self.particles_vels_mv = [], [], [], [], [], []
+        self.all_rays_mv, self.all_rgbs_mv, self.all_cw_mv, self.focal_mv, self.particles_poss_mv, \
+            self.particles_vels_mv = [], [], [], [], [], []
         for iii, viewname in enumerate(viewnames):
             _root_dir = osp.join(self.root_dir, viewname)
             all_rays_i, all_rgbs_i, all_cw_i, focal_i, particles_poss_i, particles_vels_i = self._read_meta(_root_dir)

@@ -9,14 +9,16 @@ watercube:
   train:
     start_index: 0
     end_index: 50
-    path: /data/syguan/fluid_simulation/release/data_release/watercube
+    #path: /data/syguan/fluid_simulation/release/data_release/watercube
+    path: ./data/data_release/watercube
     views:
       warmup: [view_1,view_2,view_3,view_4]
       dynamic: [view_1]
   test:
     start_index: 0
     end_index: 60
-    path: /data/syguan/fluid_simulation/release/data_release/watercube
+    #path: /data/syguan/fluid_simulation/release/data_release/watercube
+    path: ./data/data_release/watercube
     views: [view_5]
 
 watersphere:
