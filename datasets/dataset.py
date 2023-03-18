@@ -2,6 +2,7 @@
 Load data exported from blender for the renderer
 """
 import sys
+
 sys.path.append('..')
 
 import os
@@ -17,6 +18,7 @@ from torch.utils.data import Dataset
 import torchvision.transforms as T
 
 from utils.ray_utils import get_ray_directions, get_rays
+
 
 class BlenderDataset(Dataset):
     def __init__(self, root_dir, cfg, imgW, imgH, start_index, end_index, imgscale, viewnames, split='train'):
@@ -57,8 +59,14 @@ class BlenderDataset(Dataset):
         # self.focal_mv = np.array(self.focal_mv)
         self.particles_poss_mv = np.stack(self.particles_poss_mv, 0)
         self.particles_vels_mv = np.stack(self.particles_vels_mv, 0)
+        # print(self.all_rays_mv.shape)  (4, 50, 400, 400, 6)
+        # print(self.all_rgbs_mv.shape)  (4, 50, 160000, 3)
+        # print(self.all_cw_mv.shape)  (4, 50, 3, 4)
+        # print(self.focal_mv)  [1225.8648331077654, 1225.8648331077654, 1225.8648331077654, 1225.8648331077654]
+        # print(self.particles_poss_mv.shape) (1, 50, 11532, 3)
+        # print(self.particles_vels_mv.shape)  (1, 50, 11532, 3)
+        # print('---------------------------------------')
         # import ipdb;ipdb.set_trace()
-        
 
     def _read_meta(self, root_dir):
         """
@@ -66,7 +74,7 @@ class BlenderDataset(Dataset):
         """
         with open(os.path.join(root_dir, f'transforms_{self.split}.json'), 'r') as f:
             self.meta = json.load(f)
-    
+
         # parse
         # if self.half_res:
         #     W, H = self.img_wh[0] //2, self.img_wh[1] //2
@@ -78,53 +86,54 @@ class BlenderDataset(Dataset):
         directions = get_ray_directions(H, W, focal)  # (H,W,3) vectors expressed w.r.t. camera coord.
         image_paths = []
         poses = []
-        all_rays = []
-        all_rgbs = []
-        all_cw = []
+        all_rays = []  # each (H,W,6) [0:3]: rays origin [3:6]: rays direction which is normalized
+        all_rgbs = []  # (400*400, 3)
+        all_cw = []  # each (3,4) c2w mat
         # particles_path = []
-        particle_poss = []
-        particle_vels = []
+        particle_poss = []  # each (11532,3)
+        particle_vels = []  # each (11532,3)
         # self.all_mask = []
         for frame in self.meta['frames'][self.start_index:self.end_index]:
             # get particles
             # particles_path.append(frame['particle_path'])
             if len(self.particles_poss_mv) == 0:
-                particle_pos, particle_vel = self._read_particles(osp.join(root_dir, self.split, frame['particle_path']))
-                particle_poss.append(particle_pos)
-                particle_vels.append(particle_vel)
+                particle_pos, particle_vel = self._read_particles(
+                    osp.join(root_dir, self.split, frame['particle_path']))
+                particle_poss.append(particle_pos)  # (11532,3)
+                particle_vels.append(particle_vel)  # (11532,3)
             # get orignal point and directrion
             pose = np.array(frame['transform_matrix'])[:3, :4]
-            poses.append(pose) # aaa
+            poses.append(pose)
             c2w = torch.FloatTensor(pose)
             all_cw.append(pose)
-            rays_o, rays_d = get_rays(directions, c2w)
-            all_rays += [torch.cat([rays_o, rays_d], -1).numpy()]
+            rays_o, rays_d = get_rays(directions, c2w)  # rays_d are normalized
+            all_rays += [torch.cat([rays_o, rays_d], -1).numpy()]  # (H, W, 6)
             # read images
             image_path = osp.join(root_dir, '{}.png'.format(frame['file_path']))
             image_paths.append(image_path)
             image = Image.open(image_path)
             # if self.half_res:
-            image = image.resize((int(self.img_wh[0]// self.img_scale), int(self.img_wh[1]// self.img_scale)), Image.ANTIALIAS)
-            image = (np.asarray(image))/ 255.
+            image = image.resize((int(self.img_wh[0] // self.img_scale), int(self.img_wh[1] // self.img_scale)),
+                                 Image.ANTIALIAS)
+            image = (np.asarray(image)) / 255.  # 4 channel image, (400,400,4)
             image = image.reshape(-1, 4)
-            image = image[:, :3]*image[:, -1:] + (1-image[:, -1:])
+            image = image[:, :3] * image[:, -1:] + (1 - image[:, -1:])
             # image = self.transforms(image)
             # image = image.view(4, -1).permute(1,0) #(H*W, 4), RGBA image
             # image = image[:, :3]*image[:, -1:] + (1-image[:, -1:]) # blend A to RGB, assume white background. 
             all_rgbs.append(image)
-        all_rays = np.stack(all_rays, 0)
-        all_rgbs = np.stack(all_rgbs, 0)
-        all_cw = np.stack(all_cw, 0)
+        all_rays = np.stack(all_rays, 0)  # (50,400,400,6)
+        all_rgbs = np.stack(all_rgbs, 0)  # (50, 160000, 3)
+        all_cw = np.stack(all_cw, 0)  # (50, 3, 4)
+        # particle_poss : (50, 11532, 3), particle_vel: (50, 11532, 3), focal is scalar
         return all_rays, all_rgbs, all_cw, focal, particle_poss, particle_vels
         # return all_rays, all_rgbs, all_cw, focal, particles_path
-
 
     def read_box(self):
         bbox_path = self.meta['bounding_box']
         box_info = joblib.load(osp.join(self.root_dir, bbox_path))
         self.box = box_info['box']
         self.box_normals = box_info['box_normals']
-
 
     def _read_particles(self, particle_path):
         """
@@ -140,8 +149,8 @@ class BlenderDataset(Dataset):
         elif self.data_type == 'splishsplash':
             # particle_info = np.load(osp.join(self.root_dir, self.split, particle_path))
             particle_info = np.load(particle_path)
-            particle_pos = particle_info['pos']
-            particle_vel = particle_info['vel']
+            particle_pos = particle_info['pos']  # (11532,3)
+            particle_vel = particle_info['vel']  # (11532,3)
         else:
             raise NotImplementedError('please enter correct data type')
         # import ipdb;ipdb.set_trace()
@@ -149,12 +158,11 @@ class BlenderDataset(Dataset):
         # particle_vel = torch.from_numpy(particle_vel).float()
         return particle_pos, particle_vel
 
-
     def __getitem__(self, index):
         # rays = self.all_rays_mv[:, index]
         # rgbs = self.all_rgbs_mv[:, index]
         data = {}
-        data['cw'] = torch.from_numpy(self.all_cw_mv[:,index]).float()
+        data['cw'] = torch.from_numpy(self.all_cw_mv[:, index]).float()
         data['rgb'] = torch.from_numpy(self.all_rgbs_mv[:, index]).float()
         data['rays'] = torch.from_numpy(self.all_rays_mv[:, index]).float()
         data['box'] = torch.from_numpy(self.box).float()
@@ -164,15 +172,15 @@ class BlenderDataset(Dataset):
         data['focal'] = self.focal_mv
         # data['view_name'] = self.viewnames
         # if index < self.all_rgbs_mv.shape[1]:
-        data['cw_1'] = torch.from_numpy(self.all_cw_mv[:,index+1]).float()
-        data['rays_1'] = torch.from_numpy(self.all_rays_mv[:, index+1]).float()
-        data['rgb_1'] = torch.from_numpy(self.all_rgbs_mv[:, index+1]).float()
-        data['particles_pos_1'] = torch.from_numpy(self.particles_poss_mv[0, index+1]).float()
-        data['particles_vel_1'] = torch.from_numpy(self.particles_vels_mv[0, index+1]).float()
+        data['cw_1'] = torch.from_numpy(self.all_cw_mv[:, index + 1]).float()
+        data['rays_1'] = torch.from_numpy(self.all_rays_mv[:, index + 1]).float()
+        data['rgb_1'] = torch.from_numpy(self.all_rgbs_mv[:, index + 1]).float()
+        data['particles_pos_1'] = torch.from_numpy(self.particles_poss_mv[0, index + 1]).float()
+        data['particles_vel_1'] = torch.from_numpy(self.particles_vels_mv[0, index + 1]).float()
         return data
 
     def __len__(self):
-        return self.all_rgbs_mv.shape[1]-1
+        return self.all_rgbs_mv.shape[1] - 1
 
 
 if __name__ == '__main__':
