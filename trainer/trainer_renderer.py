@@ -37,25 +37,52 @@ class Trainer(BaseTrainer):
                                       imgW=self.options.TRAIN.imgW, imgH=self.options.TRAIN.imgH,  # 400, 400
                                       imgscale=self.options.TRAIN.scale, viewnames=self.train_view_names, split='train')
         # scale=1.0, viewnames=['view_1', 'view_2', 'view_3', 'view_4']
-        self.dataset_length = len(self.dataset)
+        self.dataset_length = len(self.dataset)  # 49
         self.test_dataset = BlenderDataset(self.options.test.path, self.options,
                                            start_index=self.options['test'].start_index,
                                            end_index=self.options['test'].end_index,
                                            imgW=self.options.TEST.imgW, imgH=self.options.TEST.imgH,
                                            imgscale=self.options.TEST.scale, viewnames=self.test_viewnames,
                                            split='test')
-        self.test_dataset_length = len(self.test_dataset)
+        self.test_dataset_length = len(self.test_dataset)  # 59
         print('---> dataloader has been build')
 
     def build_model(self):
         # build model
         self.renderer = RenderNet(self.options.RENDERER, near=self.options.near, far=self.options.far).to(self.device)
+        """
+        RENDERER:
+          NN_search:
+            N_neighbor: 20
+            fix_radius: true
+            particle_radius: 0.025
+            search_raduis_scale: 9.0
+          encoding:
+            density: true
+            exclude_ray: true
+            same_smooth_factor: false
+            smoothed_dir: true
+            smoothed_pos: true
+            var: true
+          ray:
+            N_importance: 128
+            N_samples: 64
+            ray_chunk: 1024
+          use_mask: true
+        """
+        # near=9.0  far=13.0
         # load pretrained checkpoints
         if self.options.TRAIN.pretained_renderer != '':
             self.load_pretained_renderer_model(self.options.TRAIN.pretained_renderer,
                                                partial_load=self.options.TRAIN.partial_load)
 
     def build_optimizer(self):
+        """
+        LR:
+            decay_epochs: 10000
+            lr: 0.0005
+            use_scheduler: true
+        """
         self.optimizer = torch.optim.Adam(self.renderer.parameters(), lr=self.options.TRAIN.LR.lr)
         if self.options.TRAIN.LR.use_scheduler:
             self.lr_scheduler = ExponentialLR(self.optimizer, decay_epochs=self.options.TRAIN.LR.decay_epochs,

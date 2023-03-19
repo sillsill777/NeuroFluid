@@ -1,0 +1,73 @@
+RENDERER:
+  NN_search:
+    N_neighbor: 20
+    fix_radius: true
+    particle_radius: 0.025
+    search_raduis_scale: 9.0
+  encoding:
+    density: true
+    exclude_ray: true
+    same_smooth_factor: false
+    smoothed_dir: true
+    smoothed_pos: true
+    var: true
+  ray:
+    N_importance: 128
+    N_samples: 64
+    ray_chunk: 1024
+  use_mask: true
+TEST:
+  camera_angle_x: 0.323
+  data_path: ./data/data_release/watercube/honeycone/view_1/train/particles
+  end_index: 50
+  far: 13.0
+  imgH: 400
+  imgW: 400
+  near: 9.0
+  scale: 1.0
+  start_index: 0
+TRAIN:
+  LR:
+    decay_epochs: 10000
+    lr: 0.0005
+    use_scheduler: true
+  N_iters: 100000
+  imgH: 400
+  imgW: 400
+  log_interval: 10
+  partial_load: false
+  precrop_iters: 500
+  pretained_renderer: ''
+  save_interval: 500
+  scale: 1.0
+  seed: 10
+config: ''
+data_type: splishsplash
+dataset: watercube
+expdir: exps/watercube
+expname: scale-1.0/warmup
+far: 13.0
+gravity:
+- 0.0
+- 0.0
+- -9.81
+near: 9.0
+resume_from: ''
+test:
+  end_index: 60
+  path: ./data/data_release/watercube
+  start_index: 0
+  views:
+  - view_5
+train:
+  end_index: 50
+  path: ./data/data_release/watercube
+  start_index: 0
+  views:
+    dynamic:
+    - view_1
+    warmup:
+    - view_1
+    - view_2
+    - view_3
+    - view_4

@@ -20,26 +20,28 @@ class RenderNet(nn.Module):
         # self.ray_chunk = cfg.ray_chunk
         self.near = near
         self.far = far
-        self.N_samples = cfg.ray.N_samples
-        self.N_importance = cfg.ray.N_importance
-        self.raduis = self.cfg.NN_search.search_raduis_scale * self.cfg.NN_search.particle_radius
-        self.fix_radius = self.cfg.NN_search.fix_radius
-        self.num_neighbor = self.cfg.NN_search.N_neighbor
+        self.N_samples = cfg.ray.N_samples  # 64
+        self.N_importance = cfg.ray.N_importance  # 128
+        self.raduis = self.cfg.NN_search.search_raduis_scale * self.cfg.NN_search.particle_radius  # 9*0.025
+        self.fix_radius = self.cfg.NN_search.fix_radius  # True
+        self.num_neighbor = self.cfg.NN_search.N_neighbor  # 20
 
         # build network
-        self.embedding_xyz = Embedding(3, 10)
-        in_channels_xyz = self.embedding_xyz.out_channels
-        self.embedding_dir = Embedding(3, 4)
-        in_channels_dir = self.embedding_dir.out_channels
+        self.embedding_xyz = Embedding(3, 10)  # out channel: 63
+        in_channels_xyz = self.embedding_xyz.out_channels  # 63
+        self.embedding_dir = Embedding(3, 4)  # out channel: 27
+        in_channels_dir = self.embedding_dir.out_channels  # 27
         if cfg.encoding.density:
-            self.embedding_density = Embedding(1, 4)
-            in_channels_xyz += self.embedding_density.out_channels
+            self.embedding_density = Embedding(1, 4)  # out channel: 9
+            in_channels_xyz += self.embedding_density.out_channels  # 72
         if cfg.encoding.var:
             in_channels_xyz += self.embedding_xyz.out_channels
         if cfg.encoding.smoothed_pos:
             in_channels_xyz += self.embedding_xyz.out_channels
         if cfg.encoding.smoothed_dir:
             in_channels_dir += self.embedding_dir.out_channels
+        # print(in_channels_xyz)  # 198
+        # print(in_channels_dir)  # 54
         self.nerf_coarse = NeRF(in_channels_xyz=in_channels_xyz, in_channels_dir=in_channels_dir)
         self.nerf_fine = NeRF(in_channels_xyz=in_channels_xyz, in_channels_dir=in_channels_dir)
 

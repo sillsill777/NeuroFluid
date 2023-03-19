@@ -59,11 +59,11 @@ class BlenderDataset(Dataset):
         # self.focal_mv = np.array(self.focal_mv)
         self.particles_poss_mv = np.stack(self.particles_poss_mv, 0)
         self.particles_vels_mv = np.stack(self.particles_vels_mv, 0)
-        # print(self.all_rays_mv.shape)  (4, 50, 400, 400, 6)
+        # print(self.all_rays_mv.shape)  (4, 50, 400, 400, 6) for train , (1, 60, 400, 400, 6) for test
         # print(self.all_rgbs_mv.shape)  (4, 50, 160000, 3)
         # print(self.all_cw_mv.shape)  (4, 50, 3, 4)
         # print(self.focal_mv)  [1225.8648331077654, 1225.8648331077654, 1225.8648331077654, 1225.8648331077654]
-        # print(self.particles_poss_mv.shape) (1, 50, 11532, 3)
+        # print(self.particles_poss_mv.shape)  (1, 50, 11532, 3) for train, (1, 60, 11532, 3) for test
         # print(self.particles_vels_mv.shape)  (1, 50, 11532, 3)
         # print('---------------------------------------')
         # import ipdb;ipdb.set_trace()
@@ -132,8 +132,8 @@ class BlenderDataset(Dataset):
     def read_box(self):
         bbox_path = self.meta['bounding_box']
         box_info = joblib.load(osp.join(self.root_dir, bbox_path))
-        self.box = box_info['box']
-        self.box_normals = box_info['box_normals']
+        self.box = box_info['box']  # (34489, 3)
+        self.box_normals = box_info['box_normals']  # (34489, 3)
 
     def _read_particles(self, particle_path):
         """

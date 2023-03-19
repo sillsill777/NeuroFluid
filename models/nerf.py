@@ -14,7 +14,7 @@ class Embedding(nn.Module):
         self.out_channels = in_channels*(len(self.funcs)*N_freqs+1)
 
         if logscale:
-            self.freq_bands = 2**torch.linspace(0, N_freqs-1, N_freqs)
+            self.freq_bands = 2**torch.linspace(0, N_freqs-1, N_freqs)  # [1, 2, 4, 8, 16 ...]
         else:
             self.freq_bands = torch.linspace(1, 2**(N_freqs-1), N_freqs)
 
