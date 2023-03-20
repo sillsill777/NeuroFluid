@@ -101,7 +101,7 @@ class Trainer(BaseTrainer):
                    osp.join(self.exppath, 'models', f'{global_step}.pt'))
 
     def train(self):
-        view_num = len(self.train_view_names)
+        view_num = len(self.train_view_names)  # 4
         H = int(self.options.TRAIN.imgH // self.options.TRAIN.scale)
         W = int(self.options.TRAIN.imgW // self.options.TRAIN.scale)
         self.renderer.train()
@@ -109,8 +109,17 @@ class Trainer(BaseTrainer):
                              desc='Iteration:'):
             data_idx = 0
             data = self.dataset[data_idx]
-            data = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in data.items()}
+            # print(data.keys())
+            # # dict_keys(
+            #  ['cw', 'rgb', 'rays', 'box', 'box_normals', 'particles_pos', 'particles_vel', 'focal', 'cw_1', 'rays_1',
+            #  'rgb_1', 'particles_pos_1', 'particles_vel_1'])
+            # print(data['rgb'].shape) #torch.Size([4, 160000, 3])
+            # print(data['particles_pos'].shape)  # torch.Size([11532, 3])
 
+            # for k, v in data.items():
+            #     if not isinstance(v, torch.Tensor):
+            #         print(k)  -> focal is not Tensor
+            data = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in data.items()}
             loss = self.train_step(data, view_num, H, W, step_idx)
             self.update_step(loss)
 
@@ -130,26 +139,27 @@ class Trainer(BaseTrainer):
         # -------
         # render by a nerf model, and then calculate mse loss
         # -------
-        ray_chunk = self.options.RENDERER.ray.ray_chunk
-        N_importance = self.options.RENDERER.ray.N_importance
+        ray_chunk = self.options.RENDERER.ray.ray_chunk  # 1024
+        N_importance = self.options.RENDERER.ray.N_importance  # 128
         total_loss = 0.
-        for view_idx in range(view_num):
-            gt_pos = data['particles_pos']
+        for view_idx in range(view_num):  # 4
+            gt_pos = data['particles_pos']  # torch.Size([11532, 3])
             view_name = self.train_view_names[view_idx]
-            cw_t1 = data['cw'][view_idx]
-            rgbs_t1 = data['rgb'][view_idx]
-            rays_t1 = data['rays'][view_idx]
-            focal_length = data['focal'][view_idx]
+            cw_t1 = data['cw'][view_idx]  # torch.Size([3, 4])
+            rgbs_t1 = data['rgb'][view_idx]  # torch.Size([160000, 3])
+            rays_t1 = data['rays'][view_idx]  # torch.Size([400, 400, 6])
+            focal_length = data['focal'][view_idx]  # 1225.8648331077654
             # randomly sample pixel
             coords = self.random_sample_coords(H, W, step_idx)
             coords = torch.reshape(coords, [-1, 2])
             select_inds = np.random.choice(coords.shape[0], size=[ray_chunk], replace=False)
             select_coords = coords[select_inds].long()
-            rays_t1 = rays_t1[select_coords[:, 0], select_coords[:, 1]]
-            rgbs_t1 = rgbs_t1.view(H, W, -1)[select_coords[:, 0], select_coords[:, 1]]
+            rays_t1 = rays_t1[select_coords[:, 0], select_coords[:, 1]]  # torch.Size([1024, 6])
+            rgbs_t1 = rgbs_t1.view(H, W, -1)[select_coords[:, 0], select_coords[:, 1]]  # torch.Size([1024, 3])
             # render
-            ro_t1 = self.renderer.set_ro(cw_t1)
+            ro_t1 = self.renderer.set_ro(cw_t1)  # ray_o = cw[:,3] # (3,) -> camera position in world coordinate
             render_ret = self.render_image(gt_pos, ray_chunk, ro_t1, rays_t1, focal_length, cw_t1)
+            exit()
             # calculate mse loss
             rgbloss_0 = self.rgb_criterion(render_ret['pred_rgbs_0'], rgbs_t1[:ray_chunk])
             if N_importance > 0:

@@ -169,9 +169,9 @@ class BaseTrainer():
         Returns:
             coordinates of sampled pixels
         """
-        if global_step > self.options.TRAIN.precrop_iters:
-            coords = torch.stack(torch.meshgrid(torch.linspace(0, H - 1, H), torch.linspace(0, W - 1, W)),
-                                 -1)  # (H, W, 2)
+        if global_step > self.options.TRAIN.precrop_iters:  # 500
+            coords = torch.stack(torch.meshgrid(torch.linspace(0, H - 1, H), torch.linspace(0, W - 1, W)),-1)
+            # (H, W, 2)  default ij
         else:
             dH = int(H // 2 * 0.5)
             dW = int(W // 2 * 0.5)
@@ -181,6 +181,17 @@ class BaseTrainer():
                     torch.linspace(W // 2 - dW, W // 2 + dW - 1, 2 * dW)
                 ), -1)
         coords = torch.reshape(coords, [-1, 2])  # (H * W, 2)
+        """
+        [
+        [0,0]
+        [0,1]
+        [0,2]
+        ...
+        [0,W-1]
+        [1,0]
+        ...
+        [H-1,W-1]]
+        """
         return coords
 
     def coarse_render_image(self, particle_pos, N_ray, ro, rays, focal_length, cw, iseval=False):
@@ -253,12 +264,12 @@ class BaseTrainer():
         """ rendering image according `particle_pos` and others
 
         Args:
-            particle_pos: particle positions
-            N_ray: ray number
-            ro: ray original point
-            rays: [ray_o, ray_d]
-            focal_length: focal length
-            cw ([type]): camera to world transformation matrix
+            particle_pos: particle positions  [11532, 3]
+            N_ray: ray number  1024(scalar)
+            ro: ray original point  [3,]
+            rays: [ray_o, ray_d]  [1024, 6]
+            focal_length: focal length   scalar
+            cw ([type]): camera to world transformation matrix  [3, 4]
             iseval: whether is in evaluation. Defaults to False.
 
         Returns:
@@ -269,6 +280,8 @@ class BaseTrainer():
         mask_0, mask_1 = [], []
         for ray_idx in range(0, N_ray, self.options.RENDERER.ray.ray_chunk):
             # render
+            # print(rays.shape) [1024, 6]
+            # print(ray_idx+self.options.RENDERER.ray.ray_chunk) -> 1024 -> this loop is executed just once
             results_i = self.renderer(particle_pos,
                                       ro,
                                       rays[ray_idx:ray_idx + self.options.RENDERER.ray.ray_chunk],

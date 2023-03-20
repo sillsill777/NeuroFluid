@@ -235,9 +235,11 @@ def ImportanceSampling(zvals, weights, N_importance, rays_o, rays_d,det):
 def coarse_sample_ray(near, far, rays, N_samples, use_disp, perturb):
     """
     coarsely sample N_sample points in each ray
+    # print(rays.shape) [1024, 6]
+    N-sample=64
     """
     z_steps = torch.linspace(0,1,N_samples,device=rays.device)
-    if not use_disp: # use linear sampling in depth space
+    if not use_disp: # use linear sampling in depth space -> default
         z_vals = near * (1-z_steps) + far * z_steps
     else: # use linear sampling in disparity space
         z_vals = 1/(1/near * (1-z_steps) + 1/far * z_steps)
@@ -253,7 +255,7 @@ def coarse_sample_ray(near, far, rays, N_samples, use_disp, perturb):
         
         perturb_rand = perturb * torch.rand(z_vals.shape, device=rays.device)
         z_vals = lower + (upper - lower) * perturb_rand
-    
+    # rays_o.unsqueeze(1) -> [N_rays, 1, 3] same as rays_o[:,None,...]
     xyz_coarse_sampled = rays_o.unsqueeze(1) + \
-                         rays_d.unsqueeze(1) * z_vals.unsqueeze(2)
+                         rays_d.unsqueeze(1) * z_vals.unsqueeze(2)  # torch.Size([1024, 64, 3])
     return z_vals, xyz_coarse_sampled

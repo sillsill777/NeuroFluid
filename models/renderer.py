@@ -224,6 +224,8 @@ class RenderNet(nn.Module):
         # coarse render
         # ---------------
         # coarsely sample
+        # self.N_samples = cfg.ray.N_samples  # 64
+        # print(rays.shape) [1024, 6]
         z_values_0, ray_particles_0 = coarse_sample_ray(self.near, self.far, rays, self.N_samples, use_disp, perturb)
         # search
         dists_0, indices_0, neighbors_0, radius_0 = self.search(ray_particles_0, physical_particles, self.fix_radius)

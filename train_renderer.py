@@ -15,5 +15,4 @@ if __name__ == '__main__':
     cfg_warmup.update(cfg_dataset)
     print(cfg_warmup.dump())
     trainer = Trainer(cfg_warmup)
-    exit()
     trainer.train()
