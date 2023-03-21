@@ -150,7 +150,7 @@ class Trainer(BaseTrainer):
             rays_t1 = data['rays'][view_idx]  # torch.Size([400, 400, 6])
             focal_length = data['focal'][view_idx]  # 1225.8648331077654
             # randomly sample pixel
-            coords = self.random_sample_coords(H, W, step_idx)
+            coords = self.random_sample_coords(H, W, step_idx)  # [H*W, 2]
             coords = torch.reshape(coords, [-1, 2])
             select_inds = np.random.choice(coords.shape[0], size=[ray_chunk], replace=False)
             select_coords = coords[select_inds].long()

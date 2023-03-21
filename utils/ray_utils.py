@@ -259,3 +259,4 @@ def coarse_sample_ray(near, far, rays, N_samples, use_disp, perturb):
     xyz_coarse_sampled = rays_o.unsqueeze(1) + \
                          rays_d.unsqueeze(1) * z_vals.unsqueeze(2)  # torch.Size([1024, 64, 3])
     return z_vals, xyz_coarse_sampled
+
