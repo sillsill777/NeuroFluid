@@ -58,7 +58,7 @@ class RenderNet(nn.Module):
         ros = ro.expand(particles.shape[0], -1)
         dirs = particles - ros
         dirs = dirs / torch.norm(dirs, dim=-1, keepdim=True)
-        return dirs
+        return dirs  # d_c in figure 2
 
     def mask_gather(self, points, idx):
         N, P, D = points.shape
@@ -92,7 +92,19 @@ class RenderNet(nn.Module):
 
     def smoothing_position(self, ray_pos, nn_poses, raduis, num_nn, exclude_ray=True, larger_alpha=0.9,
                            smaller_alpha=0.1):
-        dists = torch.norm(nn_poses - ray_pos.unsqueeze(-2), dim=-1)
+        # ray_pos [1024, 64, 3]
+        # nn_poses  # torch.Size([1024, 64, 20, 3])
+        # num_nn [1024, 64, 1]
+        dists = torch.norm(nn_poses - ray_pos.unsqueeze(-2), dim=-1)  # torch.Size([1024, 64, 20])
+        """
+        dists is not same as dist in 
+        dist, indices, neighbors = ball_query(p1=ray_particles,
+                                                   p2=raw_data,
+                                                   radius=radiis, K=self.num_neighbor)
+        
+        since in dist, if there are fewer than K points which satisfy the radius threshold then its dist is set to zero
+        But in dists it is set to the query point distance from origin.
+        """
         weights = torch.clamp(1 - (dists / raduis) ** 3, min=0)
         weighted_nn = (weights.unsqueeze(-1) * nn_poses).sum(-2) / (weights.sum(-1, keepdim=True) + 1e-12)
         if exclude_ray:
@@ -104,7 +116,8 @@ class RenderNet(nn.Module):
                 alpha = torch.ones(ray_pos.shape[0], ray_pos.shape[1], 1) * larger_alpha
                 alpha[num_nn.le(20)] = smaller_alpha
             pos = ray_pos * (1 - alpha) + weighted_nn * alpha
-        return pos, weights.sum(-1, keepdim=True)
+        return pos, weights.sum(-1, keepdim=True)  # torch.Size([1024, 64, 3]) torch.Size([1024, 64, 1])
+        # each corresponds to p_c  and  K in figure 2?
 
     def search(self, ray_particles, particles, fix_radius):
         """
@@ -114,10 +127,16 @@ class RenderNet(nn.Module):
         """
         raw_data = particles.unsqueeze(0).repeat(ray_particles.shape[0], 1, 1)  # [1024, 11532, 3]
         if fix_radius:
-            radiis = self.raduis
+            radiis = self.raduis  # 9 * particle radius
             dists, indices, neighbors = ball_query(p1=ray_particles,
                                                    p2=raw_data,
                                                    radius=radiis, K=self.num_neighbor)
+            # print(dists.shape)  # torch.Size([1024, 64, 20])
+            # print(indices.shape)  # torch.Size([1024, 64, 20])
+            # print(neighbors.shape)  # torch.Size([1024, 64, 20, 3])
+            # print(dists[0,30:32])
+            # print(indices[0,30:32])
+            # print(neighbors[0,30:32]) == print(raw_data[0,indices[0,30:32],:])
         # else:
         #     radiis = self.get_search_raduis(self.raduis, ray_particles[:,:,-1] - ro[-1], focal)
         #     dists, indices, neighbors = self._ball_query(ray_particles, raw_data, radiis, self.num_neighbor)
@@ -135,54 +154,79 @@ class RenderNet(nn.Module):
             2. main direction after PCA
         """
         # calculate mask
-        nn_mask = dists.ne(0)
+        nn_mask = dists.ne(0)  # ne-> not equal     dists->[1024, 64, 20]
         num_nn = nn_mask.sum(-1, keepdim=True)
 
         # hit pos and hit direction (basic in NeRF formulation)
         pos_like_feats = []
+        # ray_particles [1024, 64, 3]
         hit_pos = ray_particles.reshape(-1, 3)
-        hit_pos_embedded = self.embedding_xyz(hit_pos)
+        hit_pos_embedded = self.embedding_xyz(hit_pos)  # torch.Size([65536, 63])
         pos_like_feats.append(hit_pos_embedded)
         if not sigma_only:
             hit_dir = rays[:, 3:]
-            hit_dir_embedded = self.embedding_dir(hit_dir)
+            hit_dir_embedded = self.embedding_dir(hit_dir)  # [1024, 27]
             hit_dir_embedded = torch.repeat_interleave(hit_dir_embedded, repeats=ray_particles.shape[1], dim=0)
+            # torch.Size([65536, 27])
+
             dir_like_feats = []
             dir_like_feats.append(hit_dir_embedded)
-        # smoothing 
+        # smoothing
+        # print(neighbors.shape)  # torch.Size([1024, 64, 20, 3])
         smoothed_pos, density = self.smoothing_position(ray_particles, neighbors, radius, num_nn,
-                                                        exclude_ray=self.cfg.encoding.exclude_ray)
-        smoothed_dir = self.get_particles_direction(smoothed_pos.reshape(-1, 3), ro)
+                                                        exclude_ray=self.cfg.encoding.exclude_ray)  # True
+        # torch.Size([1024, 64, 3]) torch.Size([1024, 64, 1])
+
+        smoothed_dir = self.get_particles_direction(smoothed_pos.reshape(-1, 3), ro)  # torch.Size([65536, 3])
         # density
-        if self.cfg.encoding.density:
-            density_embedded = self.embedding_density(density.reshape(-1, 1))
-            pos_like_feats.append(density_embedded)
+        if self.cfg.encoding.density:  # True
+            density_embedded = self.embedding_density(density.reshape(-1, 1))  # torch.Size([65536, 9])
+            pos_like_feats.append(density_embedded)  # gamma(sigma_p)  in (10)
         # smoothed pos
-        if self.cfg.encoding.smoothed_pos:
-            smoothed_pos_embedded = self.embedding_xyz(smoothed_pos.reshape(-1, 3))
-            pos_like_feats.append(smoothed_pos_embedded)
+        if self.cfg.encoding.smoothed_pos:  # True
+            smoothed_pos_embedded = self.embedding_xyz(smoothed_pos.reshape(-1, 3))  # torch.Size([65536, 63])
+            pos_like_feats.append(smoothed_pos_embedded)  # gamma(p_c) in (10)
         # variance
-        if self.cfg.encoding.var:
+        if self.cfg.encoding.var:  # True
             vec_pp2rp = torch.zeros(ray_particles.shape[0], ray_particles.shape[1], self.num_neighbor, 3).to(
                 neighbors.device)
-            vec_pp2rp[nn_mask] = (neighbors - ray_particles.unsqueeze(-2))[nn_mask]
-            vec_pp2rp_mean = vec_pp2rp.sum(-2) / (num_nn + 1e-12)
+            vec_pp2rp[nn_mask] = (neighbors - ray_particles.unsqueeze(-2))[nn_mask]  # [1024, 64, 20, 3]
+            vec_pp2rp_mean = vec_pp2rp.sum(-2) / (num_nn + 1e-12)  # 1/K * (summation_i(l_i)) in (9) , [1024, 64, 3]
             variance = torch.zeros(ray_particles.shape[0], ray_particles.shape[1], self.num_neighbor, 3).to(
                 neighbors.device)
             variance[nn_mask] = ((vec_pp2rp - vec_pp2rp_mean.unsqueeze(-2)) ** 2)[nn_mask]
-            variance = variance.sum(-2) / (num_nn + 1e-12)
-            variance_embedded = self.embedding_xyz(variance.reshape(-1, 3))
+            variance = variance.sum(-2) / (num_nn + 1e-12)  # v_d in (9)
+
+            variance_embedded = self.embedding_xyz(variance.reshape(-1, 3))  # gamma(v_d) in (10)
             pos_like_feats.append(variance_embedded)
         # smoothed dir
-        if self.cfg.encoding.smoothed_dir:
+        if self.cfg.encoding.smoothed_dir:  # True
             smoothed_dir_embedded = self.embedding_dir(smoothed_dir)
-            dir_like_feats.append(smoothed_dir_embedded)
+            dir_like_feats.append(smoothed_dir_embedded)  # gamma(d_c) in (10)
+
+        # for i in pos_like_feats:
+        #     print(i.shape)
+        # torch.Size([65536, 63]) -> gamma(x)
+        # torch.Size([65536, 9]) -> gamma(siagma_p)
+        # torch.Size([65536, 63]) -> gamma(p_c)
+        # torch.Size([65536, 63]) -> gamma(v_d)
+        # for j in dir_like_feats:
+        #     print(j.shape)
+        # torch.Size([65536, 27]) -> gamma(d)
+        # torch.Size([65536, 27]) -> gamma(d_c)
+        # print(num_nn.shape)
+        # torch.Size([1024, 64, 1])
         if not sigma_only:
             return pos_like_feats, dir_like_feats, num_nn
         else:
             return pos_like_feats
 
     def render_image(self, rgbsigma, zvals, rays, noise_std, white_background):
+        """
+        rgbsigma: [1024, 64, 4]
+        zvals: [1024, 64]
+        rays: [1024, 6]
+        """
         rgbs = rgbsigma[..., :3]
         sigmas = rgbsigma[..., 3]
         # convert these values using volume rendering (Section 4)
@@ -190,7 +234,15 @@ class RenderNet(nn.Module):
         delta_inf = 1e10 * torch.ones_like(deltas[:, :1])  # (N_rays, 1) the last delta is infinity
         deltas = torch.cat([deltas, delta_inf], -1)  # (N_rays, N_samples_)
 
-        deltas = deltas * torch.norm(rays[:, 3:].unsqueeze(1), dim=-1)
+        deltas = deltas * torch.norm(rays[:, 3:].unsqueeze(1), dim=-1)  # unnecessary
+        # tmp=torch.norm(rays[:, 3:].unsqueeze(1), dim=-1)
+        # tmp=torch.round(tmp,decimals=6)
+        # print((tmp!=1.0).any()) ->False / if we round up at decimal 7 then there are some not equal to 1
+        # probably because of numerical problem?
+        # print(tmp[tmp!=1.0])
+
+        # Anyway unlike vanilla nerf, this project already normalizes rays_d at dataloader step.
+        # Thus, it is unnecessary to norm rays_d again.
 
         noise = 0.
         if noise_std > 0.:
@@ -230,19 +282,35 @@ class RenderNet(nn.Module):
         z_values_0, ray_particles_0 = coarse_sample_ray(self.near, self.far, rays, self.N_samples, use_disp, perturb)
         # z_vals_0:  [1024, 64],   ray_particles_0  [1024, 64, 3]
 
-        # search
+        # search  self.fix_radius=True
         dists_0, indices_0, neighbors_0, radius_0 = self.search(ray_particles_0, physical_particles, self.fix_radius)
-        # fix_raduis= True
+
+        # print(dists.shape)  # torch.Size([1024, 64, 20])
+        # print(indices.shape)  # torch.Size([1024, 64, 20])
+        # print(neighbors.shape)  # torch.Size([1024, 64, 20, 3])
+        # print('----------------------')
+        # print(dists_0)
+        # dists = torch.norm(neighbors_0 - ray_particles_0.unsqueeze(-2), dim=-1)
+        # print(dists)
+        # nn_mask = dists_0.ne(0)  # ne-> not equal     dists->[1024, 64, 20]
+        # num_nn = nn_mask.sum(-1, keepdim=True)
+        # print(num_nn)
+        # print((num_nn!=0).any())
+        # print(num_nn[num_nn!=0])
+        # print(torch.norm(neighbors_0,dim=-1))
+        # print(torch.norm(ray_particles_0[...,None,:],dim=-1))
+        # print('----------------------------')
         # embedding attributes
         pos_like_feats_0, dirs_like_feats_0, num_nn_0 = self.embedding_local_geometry(dists_0,
                                                                                       indices_0, neighbors_0, radius_0,
                                                                                       ray_particles_0, rays, ro)
-        input_feats_0 = torch.cat(pos_like_feats_0 + dirs_like_feats_0, dim=1)
+        input_feats_0 = torch.cat(pos_like_feats_0 + dirs_like_feats_0, dim=1)  # torch.Size([65536, 252])
         # predict rgbsigma
         rgbsigma_0 = self.nerf_coarse(input_feats_0)
         mask_0 = torch.all(dists_0 != 0, dim=-1, keepdim=True).float()
-        if self.cfg.use_mask:
+        if self.cfg.use_mask:  # True
             rgbsigma_0 = rgbsigma_0.view(-1, self.N_samples, 4) * mask_0
+            # For each point, only include points which have full K neighbors. If it doesn't, mask it.
         else:
             rgbsigma_0 = rgbsigma_0.view(-1, self.N_samples, 4)
         # render
