@@ -260,6 +260,9 @@ class RenderNet(nn.Module):
 
         if white_background:
             rgb_final = rgb_final + 1 - weights_sum.unsqueeze(-1)
+        # print(rgb_final.shape) [1024,3]
+        # print(depth_final.shape) [1024]
+        # print(weights.shape) [1024,64]
         return rgb_final, depth_final, weights
 
     def forward(self, physical_particles, ro, rays, focal, c2w, use_disp=False, perturb=0, noise_std=0.,
@@ -316,10 +319,13 @@ class RenderNet(nn.Module):
         # render
         rgb_final_0, depth_final_0, weights_0 = self.render_image(rgbsigma_0, z_values_0, rays, noise_std,
                                                                   white_background)
+        # print(rgb_final.shape) [1024,3]
+        # print(depth_final.shape) [1024]
+        # print(weights.shape) [1024,64]
         results['rgb0'] = rgb_final_0
         results['depth0'] = depth_final_0
         results['opacity0'] = weights_0.sum(1)
-        results['num_nn_0'] = num_nn_0
+        results['num_nn_0'] = num_nn_0  # [1024, 64, 1]
         results['mask_0'] = mask_0.sum(1)
 
         # ---------------
@@ -346,6 +352,7 @@ class RenderNet(nn.Module):
             # render
             rgb_final_1, depth_final_1, weights_1 = self.render_image(rgbsigma_1, z_values_1, rays, noise_std,
                                                                       white_background)
+
             results['rgb1'] = rgb_final_1
             results['depth1'] = depth_final_1
             results['opacity1'] = weights_1.sum(1)
