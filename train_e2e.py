@@ -17,4 +17,5 @@ if __name__ == '__main__':
     print(cfg_e2e.dump())
 
     trainer = Trainer(cfg_e2e)
+    exit()
     trainer.train()

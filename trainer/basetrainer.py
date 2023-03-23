@@ -289,7 +289,7 @@ class BaseTrainer():
                                       cw
                                       )
             pred_rgbs_0 += [results_i['rgb0']]
-            num_nn_0 += [results_i['num_nn_0'].view(-1)]
+            num_nn_0 += [results_i['num_nn_0'].view(-1)]  # [65536]
             if iseval:
                 mask_0 += [results_i['mask_0']]
             if self.options.RENDERER.ray.N_importance > 0:
@@ -298,8 +298,8 @@ class BaseTrainer():
                 if iseval:
                     mask_1 += [results_i['mask_1']]
         ret = {}
-        ret['pred_rgbs_0'] = torch.cat(pred_rgbs_0, dim=0)
-        ret['num_nn_0'] = torch.cat(num_nn_0, dim=0)
+        ret['pred_rgbs_0'] = torch.cat(pred_rgbs_0, dim=0)  # [1024,3]
+        ret['num_nn_0'] = torch.cat(num_nn_0, dim=0)  # [65536]
         if iseval:
             ret['mask_0'] = torch.cat(mask_0, dim=0)
         if self.options.RENDERER.ray.N_importance > 0:
