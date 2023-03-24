@@ -107,7 +107,7 @@ class Trainer(BaseTrainer):
         self.renderer.train()
         for step_idx in tqdm(range(self.start_step, self.options.TRAIN.N_iters), total=self.options.TRAIN.N_iters,
                              desc='Iteration:'):
-            data_idx = 0
+            data_idx = 0  # train only using t=0 data
             data = self.dataset[data_idx]
             # print(data.keys())
             # # dict_keys(
@@ -136,6 +136,12 @@ class Trainer(BaseTrainer):
             self.lr_scheduler.step()
 
     def train_step(self, data, view_num, H, W, step_idx):
+        # print(data.keys())
+        # # dict_keys(
+        #  ['cw', 'rgb', 'rays', 'box', 'box_normals', 'particles_pos', 'particles_vel', 'focal', 'cw_1', 'rays_1',
+        #  'rgb_1', 'particles_pos_1', 'particles_vel_1'])
+        # print(data['rgb'].shape) #torch.Size([4, 160000, 3])
+        # print(data['particles_pos'].shape)  # torch.Size([11532, 3])
         # -------
         # render by a nerf model, and then calculate mse loss
         # -------

@@ -53,7 +53,7 @@ class ParticleNet(nn.Module):
     
         self.convs = []
         self.denses = []
-        for i in range(1, len(self.layer_channels)):
+        for i in range(1, len(self.layer_channels)):  # [32, 64, 64, 3]
             in_ch = self.layer_channels[i-1]
             if i == 1:
                 in_ch *= 3 # three kinds of input
@@ -83,7 +83,7 @@ class ParticleNet(nn.Module):
         if self.use_window:
             window_fn = self._window_poly6
 
-        conv = conv_fn(kernel_size=self.kernel_size, 
+        conv = conv_fn(kernel_size=self.kernel_size, # [4,4,4]
                         activation=activation,
                         interpolation=self.interpolation,
                         coordinate_mapping=self.coordinate_mapping,

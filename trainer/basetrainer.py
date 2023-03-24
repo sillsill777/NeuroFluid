@@ -94,6 +94,7 @@ class BaseTrainer():
             ckpt = ckpt['transition_model_state_dict']
         elif 'model_state_dict' in ckpt:
             ckpt = ckpt['model_state_dict']
+        print(ckpt.keys())
         ckpt = {k: v for k, v in ckpt.items() if 'gravity' not in k}
         transition_model_state_dict = self.transition_model.state_dict()
         transition_model_state_dict.update(ckpt)
