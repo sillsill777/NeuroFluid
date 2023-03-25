@@ -204,21 +204,21 @@ class Trainer(BaseTrainer):
                 # print(data['particles_pos'].shape)  # torch.Size([11532, 3])
                 data = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in data.items()}
                 # training
-                exit()
                 loss = self.train_step(data, data_idx, view_num, H, W, global_step)
                 self.update_step(loss, global_step)
                 global_step += 1
-
+                exit()
                 # evaluation
                 if (global_step + 1) % self.save_interval == 0:
                     self.eval(global_step)
                     self.save_checkpoint(global_step)
 
     def trainsition_step_for_training(self, data, data_idx):
-        box = data['box']
-        box_normals = data['box_normals']
+        box = data['box']  # torch.Size([34489, 3])
+        box_normals = data['box_normals']  # torch.Size([34489, 3])
         if data_idx == 0:
             self.pos_for_next_step, self.vel_for_next_step = data['particles_pos'], data['particles_vel']
+            # torch.Size([11532, 3]), torch.Size([11532, 3])
         pred_pos, pred_vel, num_fluid_nn = self.transition_model(self.pos_for_next_step, self.vel_for_next_step, box,
                                                                  box_normals)
 

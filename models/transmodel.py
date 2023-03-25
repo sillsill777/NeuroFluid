@@ -99,8 +99,8 @@ class ParticleNet(nn.Module):
 
     def integrate_pos_vel(self, pos, vel):
         dt = self.time_step
-        vel_new = vel + self.gravity * dt
-        pos_new = pos + (vel + vel_new) / 2 * dt
+        vel_new = vel + self.gravity * dt  # (10)
+        pos_new = pos + (vel + vel_new) / 2 * dt  # (11)
         return pos_new, vel_new
 
     def compute_pose_correction(self, pos_new, vel_new, other_feats, box, box_feats, fixed_radius_search_hash_table):
@@ -108,10 +108,11 @@ class ParticleNet(nn.Module):
         Core of this network
         """
         filter_extent = torch.tensor(self.filter_extent)
+        # self.filter_extent = np.float32(6 * self.radius_scale * self.particle_radius)
         fluid_feats = [torch.ones_like(pos_new[:, 0:1]), vel_new]
         if other_feats is not None:
             fluid_feats.append(other_feats)
-        fluid_feats = torch.cat(fluid_feats, axis=-1)
+        fluid_feats = torch.cat(fluid_feats, axis=-1)  # torch.Size([11532, 4])
 
         self.ans_conv0_fluid = self.conv0_fluid(fluid_feats, pos_new, pos_new, filter_extent)
         self.ans_dense0_fluid = self.dense0_fluid(fluid_feats)
@@ -125,10 +126,18 @@ class ParticleNet(nn.Module):
             ans_conv = conv(inp_feats, pos_new, pos_new, filter_extent)
             ans_dense = dense(inp_feats)
             if ans_dense.shape[-1] == self.ans_convs[-1].shape[-1]:
+                print('a: ',ans_dense.shape[-1],' ', self.ans_convs[-1].shape[-1])
                 ans = ans_conv + ans_dense + self.ans_convs[-1]
             else:
+                print('b: ', ans_dense.shape[-1], ' ', self.ans_convs[-1].shape[-1])
                 ans = ans_conv + ans_dense
             self.ans_convs.append(ans)
+        # for a in self.ans_convs:
+        #     print(a.shape)
+        #     torch.Size([11532, 96])
+        #     torch.Size([11532, 64])
+        #     torch.Size([11532, 64])
+        #     torch.Size([11532, 3])
 
         # compute the number of fluid neighbors.
         # this info is used in the loss function during training.
@@ -143,8 +152,8 @@ class ParticleNet(nn.Module):
 
     def update_pos_vel(self, pos, pos_new, pos_delta):
         dt = self.time_step
-        pos_new_corrected = pos_new + pos_delta
-        vel_new_corrected = (pos_new_corrected - pos) / dt
+        pos_new_corrected = pos_new + pos_delta  # (13)
+        vel_new_corrected = (pos_new_corrected - pos) / dt  # (14)
         return pos_new_corrected, vel_new_corrected
 
 
@@ -160,6 +169,9 @@ class ParticleNet(nn.Module):
         # correct the pos and vel
         pos_new_corrected, vel_new_corrected = self.update_pos_vel(pos, pos_new, pos_deltas)
 
+        # print('aa ', pos_new_corrected.shape)  torch.Size([11532, 3])
+        # print(vel_new_corrected.shape)  torch.Size([11532, 3])
+        # print('adsad ',self.num_fluid_neighbors.shape)  torch.Size([11532])
         return pos_new_corrected, vel_new_corrected, self.num_fluid_neighbors
 
 
