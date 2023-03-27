@@ -309,8 +309,8 @@ class RenderNet(nn.Module):
                                                                                       ray_particles_0, rays, ro)
         input_feats_0 = torch.cat(pos_like_feats_0 + dirs_like_feats_0, dim=1)  # torch.Size([65536, 252])
         # predict rgbsigma
-        rgbsigma_0 = self.nerf_coarse(input_feats_0)
-        mask_0 = torch.all(dists_0 != 0, dim=-1, keepdim=True).float()
+        rgbsigma_0 = self.nerf_coarse(input_feats_0)  # torch.Size([65536, 4])
+        mask_0 = torch.all(dists_0 != 0, dim=-1, keepdim=True).float()  # torch.Size([1024, 64, 1])
         if self.cfg.use_mask:  # True
             rgbsigma_0 = rgbsigma_0.view(-1, self.N_samples, 4) * mask_0
             # For each point, only include points which have full K neighbors. If it doesn't, mask it.
@@ -326,7 +326,8 @@ class RenderNet(nn.Module):
         results['depth0'] = depth_final_0
         results['opacity0'] = weights_0.sum(1)
         results['num_nn_0'] = num_nn_0  # [1024, 64, 1]
-        results['mask_0'] = mask_0.sum(1)
+        results['mask_0'] = mask_0.sum(1)  # torch.Size([1024, 1]) How many point do we use in rendering each ray
+        # If some point does not have full K neighbors, then that point is set to zero-> does not contribute to color
 
         # ---------------
         # fine render
@@ -337,6 +338,7 @@ class RenderNet(nn.Module):
             # search
             dists_1, indices_1, neighbors_1, radius_1 = self.search(ray_particles_1, physical_particles,
                                                                     self.fix_radius)
+            # dist_1.shape -> torch.Size([1024, 192, 20])
             # embedding attributes
             pos_like_feats_1, dirs_like_feats_1, num_nn_1 = self.embedding_local_geometry(dists_1, indices_1,
                                                                                           neighbors_1, radius_1,

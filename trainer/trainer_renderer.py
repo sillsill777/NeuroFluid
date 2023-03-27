@@ -107,6 +107,8 @@ class Trainer(BaseTrainer):
         self.renderer.train()
         for step_idx in tqdm(range(self.start_step, self.options.TRAIN.N_iters), total=self.options.TRAIN.N_iters,
                              desc='Iteration:'):
+            # N_iters: 100000
+
             data_idx = 0  # train only using t=0 data
             data = self.dataset[data_idx]
             # print(data.keys())
@@ -124,7 +126,7 @@ class Trainer(BaseTrainer):
             self.update_step(loss)
 
             # evaluation
-            if (step_idx + 1) % self.options.TRAIN.save_interval == 0:
+            if (step_idx + 1) % self.options.TRAIN.save_interval == 0:  # save_interval: 500
                 self.eval(step_idx)
                 self.save_checkpoint(step_idx)
 
@@ -158,10 +160,12 @@ class Trainer(BaseTrainer):
             # randomly sample pixel
             coords = self.random_sample_coords(H, W, step_idx)  # [H*W, 2]
             coords = torch.reshape(coords, [-1, 2])
+
             select_inds = np.random.choice(coords.shape[0], size=[ray_chunk], replace=False)
             select_coords = coords[select_inds].long()
             rays_t1 = rays_t1[select_coords[:, 0], select_coords[:, 1]]  # torch.Size([1024, 6])
             rgbs_t1 = rgbs_t1.view(H, W, -1)[select_coords[:, 0], select_coords[:, 1]]  # torch.Size([1024, 3])
+
             # render
             ro_t1 = self.renderer.set_ro(cw_t1)  # ray_o = cw[:,3] # (3,) -> camera position in world coordinate
             render_ret = self.render_image(gt_pos, ray_chunk, ro_t1, rays_t1, focal_length, cw_t1)

@@ -28,6 +28,7 @@ class BaseTrainer():
         os.makedirs(osp.join(self.exppath, 'models'), exist_ok=True)
         os.makedirs(osp.join(self.exppath, 'images'), exist_ok=True)
         os.makedirs(osp.join(self.exppath, 'particles'), exist_ok=True)
+
         self.summary_writer = SummaryWriter(log_dir=self.exppath)
         self.device = torch.device('cuda')
         self.init_fn()
@@ -292,7 +293,7 @@ class BaseTrainer():
             pred_rgbs_0 += [results_i['rgb0']]
             num_nn_0 += [results_i['num_nn_0'].view(-1)]  # [65536]
             if iseval:
-                mask_0 += [results_i['mask_0']]
+                mask_0 += [results_i['mask_0']]  # torch.Size([1024, 1])
             if self.options.RENDERER.ray.N_importance > 0:
                 pred_rgbs_1 += [results_i['rgb1']]
                 num_nn_1 += [results_i['num_nn_1'].view(-1)]
