@@ -204,13 +204,15 @@ class Trainer(BaseTrainer):
                     cw = data['cw'][view_idx]
                     ro = self.renderer.set_ro(cw)
                     focal_length = data['focal'][view_idx]
-                    rgbs = data['rgb'][view_idx]
+                    rgbs = data['rgb'][view_idx]  # This is already unrolled
                     rays = data['rays'][view_idx].view(-1, 6)
+
                     render_ret = self.render_image(gt_pos, rays.shape[0], ro, rays, focal_length, cw, iseval=True)
                     pred_rgbs_0 = render_ret['pred_rgbs_0']
                     mask_0 = render_ret['mask_0']
                     psnr_0 = mse2psnr(img2mse(pred_rgbs_0, rgbs))
                     self.summary_writer.add_scalar(f'{view_name}/psnr_{data_idx}_0', psnr_0.item(), step_idx)
+
                     self.visualization(pred_rgbs_0, rgbs, step_idx, mask=mask_0,
                                        prefix=f'coarse_{data_idx}_{view_name}')
                     if N_importance > 0:

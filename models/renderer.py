@@ -310,6 +310,7 @@ class RenderNet(nn.Module):
         input_feats_0 = torch.cat(pos_like_feats_0 + dirs_like_feats_0, dim=1)  # torch.Size([65536, 252])
         # predict rgbsigma
         rgbsigma_0 = self.nerf_coarse(input_feats_0)  # torch.Size([65536, 4])
+
         mask_0 = torch.all(dists_0 != 0, dim=-1, keepdim=True).float()  # torch.Size([1024, 64, 1])
         if self.cfg.use_mask:  # True
             rgbsigma_0 = rgbsigma_0.view(-1, self.N_samples, 4) * mask_0
